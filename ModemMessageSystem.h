@@ -9,20 +9,22 @@
 #define INC_MODEMMESSAGESYSTEM_H_
 
 #include "usart.h"
+
 #include "string.h"
+#include "stdlib.h"
 
 #include "SoftTimerSystem.h"
 
 //Server
-const typedef enum {
+const typedef enum protocols {
 	TCP, UDP,
 } protocols;
 
-const typedef enum {
+const typedef enum transferProtocols {
 	GALILEOSKY, EGTS_56360_2015, EGTS_33472_2015, GALYLEOSKY_COMPRESSED,
 } transferProtocols;
 
-typedef struct {
+typedef struct serverData {
 	char *mainServerAdres;
 	uint32_t port;
 	uint8_t protocol;
@@ -31,10 +33,9 @@ typedef struct {
 } serverData;
 
 //Modem
-char *serverComand[] {
-	"AT",
+extern const char *modemCommand[];
 
-}
+//uint32_t _ CGNS_Sate[]
 
 void Test();
 
