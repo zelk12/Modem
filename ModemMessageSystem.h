@@ -13,24 +13,28 @@
 
 #include "SoftTimerSystem.h"
 
+//Server
 const typedef enum {
 	TCP, UDP,
 } protocols;
 
-const typedef enum{
-	GALILEOSKY,
-	EGTS_56360_2015,
-	EGTS_33472_2015,
-	GALYLEOSKY_COMPRESSED,
+const typedef enum {
+	GALILEOSKY, EGTS_56360_2015, EGTS_33472_2015, GALYLEOSKY_COMPRESSED,
 } transferProtocols;
 
 typedef struct {
-	string mainServerAdres;
+	char *mainServerAdres;
 	uint32_t port;
 	uint8_t protocol;
 	bool isUseTLSorSSL;
 	uint8_t transferProtocol;
 } serverData;
+
+//Modem
+char *serverComand[] {
+	"AT",
+
+}
 
 void Test();
 
