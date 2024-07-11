@@ -15,6 +15,7 @@
 
 #include "fsm_gc.h"
 
+#include "Other.h"
 #include "SoftTimerSystem.h"
 
 //Server

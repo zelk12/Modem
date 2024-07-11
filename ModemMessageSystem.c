@@ -26,7 +26,7 @@ void Modem_FirstRun() {
 
 //Выполнение установленого действия модема
 void Modem_RunAction() {
-
+	modem.action();
 }
 
 //Индексы команд в текстовом представлении
@@ -68,7 +68,9 @@ void Modem_SendCommand(uint16_t command) {
 }
 
 void Modem_CheckIsReady() {
-
+	if (huart1.RxState == HAL_UART_STATE_BUSY) {
+		Text_IsFindedInString(, findedText)
+	}
 }
 
 //Public
