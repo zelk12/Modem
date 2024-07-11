@@ -13,6 +13,8 @@
 #include "string.h"
 #include "stdlib.h"
 
+#include "fsm_gc.h"
+
 #include "SoftTimerSystem.h"
 
 //Server
@@ -35,7 +37,44 @@ typedef struct serverData {
 //Modem
 extern const char *modemCommand[];
 
-//uint32_t _ CGNS_Sate[]
+//Статус GPS
+typedef struct CGNS_State {
+	uint8_t _GNSS_RunStatus;
+	uint8_t fixSatus;
+	long double _UTC_DateAndTime;
+	float latitude;
+	float longitude;
+	float _MSL_Altitude;
+	float speed_OverGround;
+	float course_OverGround;
+	uint8_t fixMode;
+	uint8_t reserved1;
+	uint8_t _HDOP;
+	uint8_t _PDOP;
+	uint8_t _VDOP;
+	uint8_t reserved2;
+	uint8_t satellitesInView;
+	uint8_t satellitesUsed;
+	uint8_t reserved3;
+	uint8_t _C_OrN0_max;
+	float _HPA;
+	float _VPA;
+} CGNS_State;
+
+//Существующие состояния модема
+typedef enum Modem_State{
+	 UNDEFINED, // Состояние не определено
+	 READY, // Готов для получения новых команд
+	 BUSY, // Занят
+} Modem_State;
+
+//Информация о модеме
+typedef struct Modem_Info {
+	uint8_t state;
+	void (*action)();
+	SoftTimer timeOutTimer;
+	CGNS_State _GPS_State;
+} Modem_Info;
 
 void Test();
 
