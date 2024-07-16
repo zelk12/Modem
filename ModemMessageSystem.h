@@ -8,14 +8,12 @@
 #ifndef INC_MODEMMESSAGESYSTEM_H_
 #define INC_MODEMMESSAGESYSTEM_H_
 
-#include "usart.h"
 
-#include "string.h"
-#include "stdlib.h"
 
-#include "fsm_gc.h"
+//#include "stdlib.h"
 
-#include "Other.h"
+//#include "fsm_gc.h"
+
 #include "SoftTimerSystem.h"
 
 //Server
@@ -64,9 +62,9 @@ typedef struct CGNS_State {
 
 //Существующие состояния модема
 typedef enum Modem_State{
-	 UNDEFINED, // Состояние не определено
-	 READY, // Готов для получения новых команд
-	 BUSY, // Занят
+	 Modem_State_UNDEFINED, // Состояние не определено
+	 Modem_State_READY, // Готов для получения новых команд
+	 Modem_State_BUSY, // Занят
 } Modem_State;
 
 //Информация о модеме
