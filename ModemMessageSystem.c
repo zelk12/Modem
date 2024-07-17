@@ -6,146 +6,174 @@
  */
 
 #include "ModemMessageSystem.h"
+
+#include "SoftTimerSystem.h"
 #include "Other.h"
 
-#include "stdio.h"
-#include "string.h"
+#include "stdint.h"
 #include "usart.h"
 
-//Private
-
+#define mS_iB_Size 512
+uint8_t messageSystem_inputBuffer[mS_iB_Size] = { 0 };
+#define mS_oB_Size 128
+uint8_t messageSystem_outputBuffer[mS_oB_Size] = { 0 };
+SoftTimer messageSystem_Message_Timer;
 SoftTimer timeOutTimer;
-Modem_Info modem = { .state = Modem_State_UNDEFINED, };
 
-//Индексы команд в текстовом представлении
-const typedef enum modem_CommandEnum {
-	modem_command_simpleTest, modem_command_CGNS_PowerOff, modem_command_CGNS_PowerOn, modem_command_EchoMode_Off, modem_command_EchoMode_on,
-} serverCommandEnum;
+uint8_t Setup();
+uint8_t firstFunc();
+uint8_t secondFunc();
 
-//При выполнении все команды возвращают "OK"
-//Текстовое предстовление команд для модема, используеться при отправке
-const char *modem_Command[] = { "AT", // (simppleTest) Простая проверка возвращает
-		"AT+CGNSPWR=0", // (CGNS_PowerOff) Выключает питание системы CGNS (GPS)
-		"AT+CGNSPWR=1", // (CGNS_PowerOn) Включает питание системы CGNS (GPS)
-		"AT+CGNSINF", // (CGNS_GetInfo) Запрос данных от модема
-		"ATE0", // (EchoMode_Off) Отключает режим эхо
-		"ATE1", // (EchoMode_On) Включает режим эхо
-		};
+uint8_t voidFunc();
 
-void Modem_EchoOff() {
-	if (modem.state == Modem_State_READY) {
-		Modem_SendCommand((uint16_t)modem_command_EchoMode_Off);
-	}
+uint8_t modem_Power = 0;
+uint8_t (*modem_Action)() = &Setup;
+uint8_t modem_Work_Status = 0;
 
-}
+//Func space
 
-void Modem_setup() {
-	modem.action = Modem_EchoOff;
-}
+uint8_t modem_DoCommandWithConfirmed(uint8_t *sendedCommand, uint8_t size) {
+	if (huart1.RxState == HAL_UART_STATE_READY) {
+		HAL_UART_Receive_IT(&huart1, messageSystem_inputBuffer, mS_iB_Size);
+	} else {
+		if (Text_IsFindedInString((char*) messageSystem_inputBuffer, mS_iB_Size, "OK", 2)) {
+			modem_Power = 1;
+			modem_Work_Status = 1;
+			modem_Action = &secondFunc;
+			Array_uint8_t_Fill(messageSystem_inputBuffer, 0);
 
-//Выполнение установленого действия модема
-void Modem_RunAction() {
-	modem.action();
-}
-
-// Инициализация изночальных значений модема
-void Modem_InfoInit() {
-	modem.timeOutTimer = timeOutTimer;
-}
-
-// Информация для поключения к серверу wialon
-serverData galyleoskyServer = { "nl.gpsgsm.org", // SeverAdress
-		22022, // ServerPort
-		TCP, // Protocols
-		false, // TLS/SSL
-		GALILEOSKY, // TransferProtocols
-		};
-
-//Отправляет текстовое сообщение по UART
-void MessageSystem_SendMessage(char *text) {
-	HAL_UART_Transmit_IT(&huart1, (uint8_t*) text, strlen(text));
-	//HAL_UART_Transmit(&huart1, (uint8_t*)text, strlen(text), 5000);
-}
-
-//Максимальная длинна буфера сообщений
-#define MESSAGE_BUFFER_LENGHT 100
-//Буфер чтения сообщений
-char messageBuffer[MESSAGE_BUFFER_LENGHT];
-//Запускает чтение сообщения
-void MessageSystem_StartReadMaxMessage() {
-	HAL_UART_Receive_IT(&huart1, (uint8_t*) messageBuffer, MESSAGE_BUFFER_LENGHT);
-}
-
-//Останавливает ожидание данных от модема
-void MessageSystem_StopReadMessage() {
-	HAL_UART_AbortReceive_IT(&huart1);
-}
-
-#define MESSAGE_SEND_BUFFER_LENGHT 100
-//Данны для отправки
-char toSend[MESSAGE_SEND_BUFFER_LENGHT] = { 0 };
-//Отправляет команду по UART модему
-void Modem_SendCommand(uint16_t command) {
-	if (huart1.gState == HAL_UART_STATE_READY) {
-
-		for (uint8_t i = 0; i < MESSAGE_SEND_BUFFER_LENGHT; ++i) {
-			toSend[i] = 0;
+			return 1;
 		}
-		snprintf(toSend, MESSAGE_SEND_BUFFER_LENGHT, "%s\n", modem_Command[command]);
-		MessageSystem_SendMessage((char*) toSend);
 	}
+
+	if (huart1.gState == HAL_UART_STATE_READY && Timer_RunAlways_GetStatus(&messageSystem_Message_Timer, 2500)) {
+		modem_Work_Status = 2;
+		HAL_UART_Transmit_IT(&huart1, (uint8_t*) sendedCommand, size);
+		Timer_ResetTimer(&messageSystem_Message_Timer);
+	}
+	return 0;
 }
 
-// Проверка модема на готовность получать сообщения
-//Отправляет команду "AT" ожидает команду "OK"
-void Modem_CheckIsReady() {
-	if (huart1.RxState == HAL_UART_STATE_BUSY_RX) {
-		if (Text_IsFindedInString(messageBuffer, "OK")) {
+//Repited func
+uint8_t ATE0() {
+	return modem_DoCommandWithConfirmed((uint8_t*) "ATE0\n", 5);
+}
 
-			modem.state = Modem_State_READY;
-			MessageSystem_StopReadMessage();
-		} else if (Timer_RunAlways_GetStatus(&modem.timeOutTimer, 5000)) {
+uint8_t AT_IFC_1_1() {
+	return modem_DoCommandWithConfirmed((uint8_t*) "AT+IFC=1,1\n", 11);
+}
 
-			modem.state = Modem_State_BUSY;
-			//HAL_UART_Transmit_IT(&huart1,(uint8_t *) "AT\n", 3);
-			Timer_ResetTimer(&modem.timeOutTimer);
+uint8_t AT_CLIP_1() {
+	return modem_DoCommandWithConfirmed((uint8_t*) "AT+CLIP=1\n", 10);
+}
+
+uint8_t AT_CLTS_1() {
+	return modem_DoCommandWithConfirmed((uint8_t*) "AT+CLTS=1\n", 10);
+}
+
+uint8_t AT_CSCLK_0() {
+	return modem_DoCommandWithConfirmed((uint8_t*) "AT+CLTS=1\n", 10);
+}
+
+uint8_t AT_CMGHEX_1() {
+	if (huart1.RxState == HAL_UART_STATE_READY) {
+		HAL_UART_Receive_IT(&huart1, messageSystem_inputBuffer, mS_iB_Size);
+	} else {
+		if (Text_IsFindedInString_AutoSize((char*) messageSystem_inputBuffer, "OK")) {
+			modem_Power = 1;
+			modem_Work_Status = 1;
+			modem_Action = &secondFunc;
+			Array_uint8_t_Fill(messageSystem_inputBuffer, 0);
+
+			return 1;
 		}
-	} else if (huart1.RxState == HAL_UART_STATE_READY) {
-
-		MessageSystem_StartReadMaxMessage();
 	}
+
+	if (huart1.gState == HAL_UART_STATE_READY && Timer_RunAlways_GetStatus(&messageSystem_Message_Timer, 2500)) {
+		modem_Work_Status = 2;
+		HAL_UART_Transmit_IT(&huart1, (uint8_t*) "AT+CMGHEX=1\n", 12);
+		Timer_ResetTimer(&messageSystem_Message_Timer);
+	}
+	return 0;
 }
 
-SoftTimer SendTimer;
-void Modem_simpleTest() {
-	if (modem.state == Modem_State_UNDEFINED) {
+//Main space
 
-		Modem_CheckIsReady();
-		Modem_SendCommand(modem_command_simpleTest);
-	}else if (modem.state == Modem_State_BUSY && Timer_RunAlways_GetStatus(&SendTimer, 500)) {
+uint8_t Setup() {
+	modem_Action = &firstFunc;
 
-		Modem_SendCommand(modem_command_simpleTest);
-	}else if (modem.state == Modem_State_READY) {
-
-		modem.state = Modem_State_BUSY;
-	}
+	return 0;
 }
 
-bool Modem_IsFirstRun = true;
-//Выполняеться при начале работы с модемом
-void Modem_FirstRun() {
-	if (Modem_IsFirstRun) {
-		modem.action = Modem_InfoInit;
-		Modem_RunAction();
-		modem.action = modem_command_simpleTest;
-		Modem_IsFirstRun = false;
+uint8_t firstFunc() {
+	if (huart1.RxState == HAL_UART_STATE_READY) {
+		HAL_UART_Receive_IT(&huart1, messageSystem_inputBuffer, mS_iB_Size);
+	} else {
+		if (Text_IsFindedInString((char*) messageSystem_inputBuffer, mS_iB_Size, "OK", 2)) {
+			modem_Power = 1;
+			modem_Work_Status = 1;
+			modem_Action = &secondFunc;
+			HAL_UART_AbortReceive_IT(&huart1);
+			Array_uint8_t_Fill(messageSystem_inputBuffer, 0);
+
+			return 1;
+		}
 	}
+
+	if (huart1.gState == HAL_UART_STATE_READY && Timer_RunAlways_GetStatus(&messageSystem_Message_Timer, 2500)) {
+		modem_Work_Status = 2;
+		HAL_UART_Transmit_IT(&huart1, (uint8_t*) "AT\n", 3);
+		Timer_ResetTimer(&messageSystem_Message_Timer);
+	}
+	return 0;
 }
 
-//Public
-//Общая функция для проверки
-uint8_t testtest = 0;
+uint8_t secondFunc() {
+	static uint8_t (*secondFunc_Action)() = &ATE0;
+	static uint8_t secondFunc_ActionNumber = 0;
+
+	if (secondFunc_Action()) {
+		switch (secondFunc_ActionNumber) {
+			case 0:
+				secondFunc_Action = &AT_IFC_1_1;
+				++secondFunc_ActionNumber;
+				break;
+
+			case 1:
+				secondFunc_Action = &AT_CLIP_1;
+				++secondFunc_ActionNumber;
+				break;
+
+			case 2:
+				secondFunc_Action = &AT_CLTS_1;
+				++secondFunc_ActionNumber;
+				break;
+
+			case 3:
+				secondFunc_Action = &AT_CSCLK_0;
+				++secondFunc_ActionNumber;
+				break;
+
+			case 4:
+				secondFunc_Action = &AT_CMGHEX_1;
+				++secondFunc_ActionNumber;
+				break;
+
+			case 5:
+				modem_Action = &voidFunc;
+				break;
+			default:
+				break;
+		}
+	}
+
+	return 0;
+}
+
+uint8_t voidFunc() {
+	return 0;
+}
+
 void Test() {
-	Modem_FirstRun();
-	Modem_RunAction();
+	modem_Action();
 }
