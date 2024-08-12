@@ -626,58 +626,87 @@ void Test() {
 #define testPlace_modem
 #define testPlace_modem_command
 #define testplace_modem_command_response
+#define testPlace_modem_command_textdata
 #define testPlace_modem_message
+#define testPlace_modem_message_input
 #define testPlace_modem_message_buffer
 #define testPlace_modem_message_action
 #define testPlace_modem_message_action_simple
 #define testPlace_modem_message_action_complex
+
+#pragma region testPlace Struct
+//Структура текста
+typedef struct testPlace_modem_textData {
+	uint8_t *text;
+	size_t length;
+} testPlace_modem_textData;
 
 #pragma region testplace modem message buffer
 //Буферы
 //Буфер приема
 #define testplace_modem_message_buffer_input_length 512
 uint8_t testplace_modem_message_buffer_input[testplace_modem_message_buffer_input_length] = { 0 };
+testPlace_modem_textData testplace_modem_message_buffer_input_textdata = { testplace_modem_message_buffer_input, testplace_modem_message_buffer_input_length };
 
 //Буфер отправки
-#define testplace_modem_message_buffer_outpu_length 512
-uint8_t testplace_modem_message_buffer_output[testplace_modem_message_buffer_outpu_length] = { 0 };
-
-//Структура текста
-#pragma region testPlace Struct
-typedef struct testPlace_modem_textData {
-	uint8_t *text;
-	size_t length;
-} testPlace_modem_textData;
+#define testplace_modem_message_buffer_output_length 512
+uint8_t testplace_modem_message_buffer_output[testplace_modem_message_buffer_output_length] = { 0 };
+testPlace_modem_textData testplace_modem_message_buffer_output_textdata = { testplace_modem_message_buffer_output, testplace_modem_message_buffer_output_length };
 
 #pragma region testplace Modem Commands
 //Список команд доступных для отправки
-testPlace_modem_textData testPlace_modem_command_AT = { (uint8_t*) "AT", 2 };
+testPlace_modem_textData testPlace_modem_command_textdata_AT = { (uint8_t*) "AT", 2 };
+testPlace_modem_textData testPlace_modem_command_textdata_ATE = { (uint8_t*) "ATE", 3 };
 
-#pragma region testplace Modem Commands
+testPlace_modem_textData testPlace_modem_command_textdata_AT_IFC = { (uint8_t*) "AT+IFC", 6 };
+testPlace_modem_textData testPlace_modem_command_textdata_AT_CLIP = { (uint8_t*) "AT+CLIP", 7 };
+testPlace_modem_textData testPlace_modem_command_textdata_AT_CLTS = { (uint8_t*) "AT+CLTS", 7 };
+testPlace_modem_textData testPlace_modem_command_textdata_AT_CSCLK = { (uint8_t*) "AT+CSCLK", 8 };
+testPlace_modem_textData testPlace_modem_command_textdata_AT_CMGHEX = { (uint8_t*) "AT+CMGHEX", 9 };
+
+testPlace_modem_textData testPlace_modem_command_textdata_AT_HTTPINIT = { (uint8_t*) "AT+HTTPINIT", 11 };
+testPlace_modem_textData testPlace_modem_command_textdata_AT_SAPBR = { (uint8_t*) "AT+SAPBR", 8 };
+testPlace_modem_textData testPlace_modem_command_textdata_AT_HTTPPARA = { (uint8_t*) "AT+HTTPPARA", 11 };
+
+#pragma region testplace Modem Response Commands
 //Список ответов при выполнении команд
-testPlace_modem_textData testplace_modem_command_response_OK = { (uint8_t*) "OK", 2 };
-testPlace_modem_textData testplace_modem_command_response_ERROR = { (uint8_t*) "ERROR", 5 };
+testPlace_modem_textData testplace_modem_command_textdata_response_OK = { (uint8_t*) "OK", 2 };
+testPlace_modem_textData testplace_modem_command_textdata_response_ERROR = { (uint8_t*) "ERROR", 5 };
+
+#pragma region testplace modem command result
+enum testplace_modem_command_result {
+	testplace_modem_command_result_Unknow, testplace_modem_command_result_TimeOut, testplace_modem_command_result_Error, testplace_modem_command_result_Ok, testplace_modem_command_result_work_processing,
+} testplace_modem_command_result;
+
+#pragma region testplace Modem State
+enum testplace_modem_state {
+	testplace_modem_state_unknow = -1, testplace_modem_state_off, testplace_modem_state_on,
+} testplace_modem_state;
+
+int8_t testplace_modem_state_power = testplace_modem_state_unknow;
+int8_t testplace_modem_state_busy = testplace_modem_state_unknow;
+int8_t testplace_modem_state_ATE = testplace_modem_state_unknow;
+int8_t testplace_modem_state_AT_IFC[2] = { testplace_modem_state_unknow, testplace_modem_state_unknow };
+int8_t testplace_modem_state_AT_CLIP = testplace_modem_state_unknow;
+int8_t testplace_modem_state_AT_CLTS = testplace_modem_state_unknow;
+int8_t testplace_modem_state_AT_CSCLK = testplace_modem_state_unknow;
+int8_t testplace_modem_state_AT_CMGHEX = testplace_modem_state_unknow;
 
 #pragma region testplace Modem Func
 //Функция отправки команд
 //На вход получает комманду которую необходимо отправить
 //Ничего не возвращает
 void testplace_modem_message_action_simple_sendcommand(testPlace_modem_textData *command) {
-	sprintf((char*) testplace_modem_message_buffer_output, "\s\c", (char*) (*command).text, '\n');
+	sprintf((char*) testplace_modem_message_buffer_output, "%s%c", (char*) (*command).text, '\n');
 	HAL_UART_Transmit_IT(&huart1, testplace_modem_message_buffer_output, (*command).length + 1);
 }
 
 //Функция запуска ожидания текста на входе
 //Запускает ожидание HAL_UART
 void testplace_modem_message_action_simple_waittext() {
-	HAL_UART_Receive_IT(&huart1, testplace_modem_message_buffer_output, testplace_modem_message_buffer_outpu_length);
+	HAL_UART_Receive_IT(&huart1, testplace_modem_message_buffer_output, testplace_modem_message_buffer_output_length);
 }
 testPlace_modem_message_buffer
-
-//функция получения результата выполнения команды
-enum testplace_modem_command_result {
-	testplace_modem_command_result_Unknow, testplace_modem_command_result_TimeOut, testplace_modem_command_result_Error, testplace_modem_command_result_Ok,
-} testplace_modem_command_result;
 
 //Проверяет начатоли ожидание текста, в ином случае запускает ожидание
 //Если ожидание начато, запускает таймер и проверяет текст на содержание сообщения "OK" или "ERROR"
@@ -699,16 +728,18 @@ uint8_t testPlace_modem_message_action_complex_find_command_result() {
 	//body
 	if (huart1.RxState == HAL_UART_STATE_BUSY_RX) {
 		if (!Timer_RunAlways_GetStatus(&testPlace_modem_message_input_timeOutTimer, testPlace_modem_message_input_timeOutTimer_delay)) {
-			if (Text_IsFindedIn((char*) testplace_modem_message_buffer_input, testplace_modem_message_buffer_input_length, (char*) testplace_modem_command_response_OK.text, testplace_modem_command_response_OK.length)) {
+			if (Text_IsFindedIn((char*) testplace_modem_message_buffer_input, testplace_modem_message_buffer_input_length, (char*) testplace_modem_command_textdata_response_OK.text, testplace_modem_command_textdata_response_OK.length)) {
 				return return_result_end(testplace_modem_command_result_Ok);
-			} else if ((Text_IsFindedIn((char*) testplace_modem_message_buffer_input, testplace_modem_message_buffer_input_length, (char*) testplace_modem_command_response_ERROR.text, testplace_modem_command_response_ERROR.length))) {
+			} else if ((Text_IsFindedIn((char*) testplace_modem_message_buffer_input, testplace_modem_message_buffer_input_length, (char*) testplace_modem_command_textdata_response_ERROR.text, testplace_modem_command_textdata_response_ERROR.length))) {
 				return return_result_end(testplace_modem_command_result_Error);
 			}
+			return testplace_modem_command_result_work_processing;
 		} else {
 			return return_result_end(testplace_modem_command_result_TimeOut);
 		}
 	} else {
 		testplace_modem_message_action_simple_waittext();
+		return testplace_modem_command_result_work_processing;
 	}
 	return return_result_end(testplace_modem_command_result_Unknow);
 }
@@ -727,5 +758,206 @@ uint8_t testplace_moedm_message_action_complex_sendcommand_confirmed(testPlace_m
 }
 
 uint8_t testPlace_modem_message_action_simple_sendcommand_AT() {
-	testplace_moedm_message_action_complex_sendcommand_confirmed(&testPlace_modem_command_AT);
+	return testplace_moedm_message_action_complex_sendcommand_confirmed(&testPlace_modem_command_textdata_AT);
 }
+
+uint8_t testPlace_modem_message_action_simple_runcommand_simpletest() {
+#define testplace_modem_message_action_simple_usedaction testPlace_modem_message_action_simple_sendcommand_AT
+#define testplace_modem_state_usedstate testplace_modem_state_power
+	static uint8_t _is_worked = 0;
+	uint8_t result = testplace_modem_command_result_Unknow;
+
+	if (testplace_modem_state_busy == 0 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction();
+		_is_worked = 1;
+		testplace_modem_state_busy = 1;
+	} else if (testplace_modem_state_busy == 1 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction();
+	}
+
+	if (result == testplace_modem_command_result_Ok || result == testplace_modem_command_result_Error) {
+		testplace_modem_state_usedstate = testplace_modem_state_on;
+	}
+	if (result != testplace_modem_command_result_Unknow && result != testplace_modem_command_result_work_processing) {
+		_is_worked = 0;
+		testplace_modem_state_usedstate = testplace_modem_state_unknow;
+		Array_uint8_t_Fill(testplace_modem_message_buffer_output, testplace_modem_message_buffer_output_length, 0);
+	}
+	return result;
+}
+
+uint8_t testplace_modem_message_action_simple_sendcommand_ATEn(uint8_t newstate) {
+#define testplace_modem_command_textdata_usedcommand testPlace_modem_command_textdata_ATE
+	sprintf((char*) testplace_modem_message_buffer_output, "%s%d", (char*) testplace_modem_command_textdata_usedcommand.text, newstate);
+	testplace_modem_message_buffer_output_textdata.length = testplace_modem_command_textdata_usedcommand.length + 1;
+	return testplace_moedm_message_action_complex_sendcommand_confirmed(&testplace_modem_message_buffer_output_textdata);
+}
+
+uint8_t testplace_modem_message_action_simple_runcommand_ATE_set(uint8_t newstate) {
+#define testplace_modem_message_action_simple_usedaction testplace_modem_message_action_simple_sendcommand_ATEn
+#define testplace_modem_state_usedstate testplace_modem_state_ATE
+	static uint8_t _is_worked = 0;
+	uint8_t result = testplace_modem_command_result_Unknow;
+
+	if (testplace_modem_state_busy == 0 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction(newstate);
+		_is_worked = 1;
+		testplace_modem_state_busy = 1;
+	} else if (testplace_modem_state_busy == 1 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction(newstate);
+	}
+
+	if (result == testplace_modem_command_result_Ok) {
+		testplace_modem_state_usedstate = newstate;
+	}
+	return result;
+}
+
+uint8_t testplace_modem_message_action_simple_sendcommand_AT_IFCnn(uint8_t TE, uint8_t TA) {
+#define testplace_modem_command_textdata_usedcommand testPlace_modem_command_textdata_AT_IFC
+	sprintf((char*) testplace_modem_message_buffer_output, "%s=%d,%d", (char*) testplace_modem_command_textdata_usedcommand.text, TE, TA);
+	testplace_modem_message_buffer_output_textdata.length = testplace_modem_command_textdata_usedcommand.length + 4;
+	return testplace_moedm_message_action_complex_sendcommand_confirmed(&testplace_modem_message_buffer_output_textdata);
+}
+
+uint8_t testplace_modem_message_action_simple_runcommand_AT_IFC_set(uint8_t TE, uint8_t TA) {
+#define testplace_modem_message_action_simple_usedaction testplace_modem_message_action_simple_sendcommand_AT_IFCnn
+#define testplace_modem_state_usedstate testplace_modem_state_AT_IFC
+	static uint8_t _is_worked = 0;
+	uint8_t result = testplace_modem_command_result_Unknow;
+
+	if (testplace_modem_state_busy == 0 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction(TE, TA);
+		_is_worked = 1;
+		testplace_modem_state_busy = 1;
+	} else if (testplace_modem_state_busy == 1 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction(TE, TA);
+	}
+
+	if (result == testplace_modem_command_result_Ok) {
+		testplace_modem_state_usedstate[0] = TE;
+		testplace_modem_state_usedstate[1] = TA;
+	}
+	return result;
+}
+
+uint8_t testplace_modem_message_action_simple_sendcommand_AT_CLIPn(uint8_t newstate) {
+#define testplace_modem_command_textdata_usedcommand testPlace_modem_command_textdata_AT_CLIP
+	sprintf((char*) testplace_modem_message_buffer_output, "%s=%d", (char*) testplace_modem_command_textdata_usedcommand.text, newstate);
+	testplace_modem_message_buffer_output_textdata.length = testplace_modem_command_textdata_usedcommand.length + 2;
+	return testplace_moedm_message_action_complex_sendcommand_confirmed(&testplace_modem_message_buffer_output_textdata);
+}
+
+uint8_t testplace_modem_message_action_simple_runcommand_AT_CLIP_set(uint8_t newstate) {
+#define testplace_modem_message_action_simple_usedaction testplace_modem_message_action_simple_sendcommand_AT_CLIPn
+#define testplace_modem_state_usedstate testplace_modem_state_AT_CLIP
+	static uint8_t _is_worked = 0;
+	uint8_t result = testplace_modem_command_result_Unknow;
+
+	if (testplace_modem_state_busy == 0 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction(newstate);
+		_is_worked = 1;
+		testplace_modem_state_busy = 1;
+	} else if (testplace_modem_state_busy == 1 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction(newstate);
+	}
+
+	if (result == testplace_modem_command_result_Ok) {
+		testplace_modem_state_usedstate = newstate;
+	}
+	return result;
+}
+
+uint8_t testplace_modem_message_action_simple_sendcommand_AT_CLTSn(uint8_t newstate) {
+#define testplace_modem_command_textdata_usedcommand testPlace_modem_command_textdata_AT_CLTS
+	sprintf((char*) testplace_modem_message_buffer_output, "%s=%d", (char*) testplace_modem_command_textdata_usedcommand.text, newstate);
+	testplace_modem_message_buffer_output_textdata.length = testplace_modem_command_textdata_usedcommand.length + 2;
+	return testplace_moedm_message_action_complex_sendcommand_confirmed(&testplace_modem_message_buffer_output_textdata);
+}
+
+uint8_t testplace_modem_message_action_simple_runcommand_AT_CLTS_set(uint8_t newstate) {
+#define testplace_modem_message_action_simple_usedaction testplace_modem_message_action_simple_sendcommand_AT_CLTSn
+#define testplace_modem_state_usedstate testplace_modem_state_AT_CLTS
+	static uint8_t _is_worked = 0;
+	uint8_t result = testplace_modem_command_result_Unknow;
+
+	if (testplace_modem_state_busy == 0 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction(newstate);
+		_is_worked = 1;
+		testplace_modem_state_busy = 1;
+	} else if (testplace_modem_state_busy == 1 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction(newstate);
+	}
+
+	if (result == testplace_modem_command_result_Ok) {
+		testplace_modem_state_usedstate = newstate;
+	}
+	return result;
+}
+
+uint8_t testplace_modem_message_action_simple_sendcommand_AT_CSCLKn(uint8_t newstate) {
+#define testplace_modem_command_textdata_usedcommand testPlace_modem_command_textdata_AT_CLTS
+	sprintf((char*) testplace_modem_message_buffer_output, "%s=%d", (char*) testplace_modem_command_textdata_usedcommand.text, newstate);
+	testplace_modem_message_buffer_output_textdata.length = testplace_modem_command_textdata_usedcommand.length + 2;
+	return testplace_moedm_message_action_complex_sendcommand_confirmed(&testplace_modem_message_buffer_output_textdata);
+}
+
+uint8_t testplace_modem_message_action_simple_runcommand_AT_CSCLK_set(uint8_t newstate) {
+#define testplace_modem_message_action_simple_usedaction testplace_modem_message_action_simple_sendcommand_AT_CSCLKn
+#define testplace_modem_state_usedstate testplace_modem_state_AT_CSCLK
+	static uint8_t _is_worked = 0;
+	uint8_t result = testplace_modem_command_result_Unknow;
+
+	if (testplace_modem_state_busy == 0 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction(newstate);
+		_is_worked = 1;
+		testplace_modem_state_busy = 1;
+	} else if (testplace_modem_state_busy == 1 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction(newstate);
+	}
+
+	if (result == testplace_modem_command_result_Ok) {
+		testplace_modem_state_usedstate = newstate;
+	}
+	return result;
+}
+
+uint8_t testplace_modem_message_action_simple_sendcommand_AT_CMGHEXn(uint8_t newstate) {
+#define testplace_modem_command_textdata_usedcommand testPlace_modem_command_textdata_AT_CMGHEX
+	sprintf((char*) testplace_modem_message_buffer_output, "%s=%d", (char*) testplace_modem_command_textdata_usedcommand.text, newstate);
+	testplace_modem_message_buffer_output_textdata.length = testplace_modem_command_textdata_usedcommand.length + 2;
+	return testplace_moedm_message_action_complex_sendcommand_confirmed(&testplace_modem_message_buffer_output_textdata);
+}
+
+uint8_t testplace_modem_message_action_simple_runcommand_AT_CMGHEX_set(uint8_t newstate) {
+#define testplace_modem_message_action_simple_usedaction testplace_modem_message_action_simple_sendcommand_AT_CMGHEXn
+#define testplace_modem_state_usedstate testplace_modem_state_AT_CMGHEX
+	static uint8_t _is_worked = 0;
+	uint8_t result = testplace_modem_command_result_Unknow;
+
+	if (testplace_modem_state_busy == 0 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction(newstate);
+		_is_worked = 1;
+		testplace_modem_state_busy = 1;
+	} else if (testplace_modem_state_busy == 1 && _is_worked == 0) {
+		result = testplace_modem_message_action_simple_usedaction(newstate);
+	}
+
+	if (result == testplace_modem_command_result_Ok) {
+		testplace_modem_state_usedstate = newstate;
+	}
+	return result;
+}
+
+// TODO: ATE0 -+
+// TODO: AT+IFC=1,1 -+
+// TODO: AT+CLIP=1 -+
+// TODO: AT+CLTS=1 -+
+// TODO: AT+CSCLK=0 -+
+// TODO: AT+CMGHEX=1 -+
+// TODO: AT+HTTPINIT
+// TODO: AT+SAPBR=3,1,"CONTYPE","GPRS"
+// TODO: AT+SAPBR=3,1,"APN","internet.mts.ru"
+// TODO: AT+SAPBR=1,1
+// TODO: AT+HTTPPARA="URL","http://urv.iot.turtton.ru/api/log/ep\"
+// TODO: Setup
