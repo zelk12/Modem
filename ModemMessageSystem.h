@@ -10,6 +10,8 @@
 
 void Test();
 
+uint8_t testplace_modem_setup();
+
 #endif /* INC_MODEMMESSAGESYSTEM_H_ */
 
 
